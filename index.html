@@ -228,7 +228,7 @@
         
         // --- Scales ---
         const xScale = d3.scaleLog()
-            .domain([d3.max(llmData, d => d.cost), 0.1]) // Invert the domain for reversed axis
+            .domain([d3.max(llmData, d => d.cost), 0.09]) // Invert the domain for reversed axis
             .range([0, width]); // Keep range from left to right
 
         const yScale = d3.scaleLinear()
@@ -350,3 +350,4 @@
 </script>
 </body>
 </html>
+

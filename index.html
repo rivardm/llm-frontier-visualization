@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM Pareto Frontier Visualization</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 2rem;
+            color: #333;
+        }
+        #chart-container {
+            background-color: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            width: 90%;
+            max-width: 1200px;
+        }
+        h1 {
+            font-size: 1.75rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        p.subtitle {
+            margin-top: 0;
+            margin-bottom: 2rem;
+            color: #666;
+        }
+        .tooltip {
+            position: absolute;
+            text-align: left;
+            padding: 10px;
+            font-size: 14px;
+            background: #fff;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .tooltip strong {
+            display: block;
+            margin-bottom: 4px;
+            font-size: 16px;
+        }
+        .grid path, .grid line {
+            stroke: #e0e0e0;
+            stroke-opacity: 0.7;
+            shape-rendering: crispEdges;
+        }
+        .domain {
+            stroke: #999;
+        }
+        .axis-label {
+            font-size: 14px;
+            fill: #555;
+            font-weight: 500;
+        }
+        .dot {
+            stroke-width: 1.5px;
+        }
+        .node {
+            cursor: pointer;
+        }
+        .label {
+            font-size: 9px;
+            fill: #333;
+            opacity: 0.8;
+            pointer-events: none;
+        }
+        .pareto-line {
+            fill: none;
+            stroke: #007aff;
+            stroke-width: 2px;
+            stroke-dasharray: 4 4;
+        }
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            font-size: 14px;
+        }
+        .legend-color {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+    </style>
+</head>
+<body>
+
+<div id="chart-container">
+    <h1>LLM Pareto Frontier</h1>
+    <p class="subtitle">Comparing Chatbot Arena Elo scores against API cost ($/1M input tokens). Hover over points for details.</p>
+    <svg id="chart"></svg>
+    <div id="legend" class="legend"></div>
+</div>
+
+<script>
+    // --- Data Loading and Processing ---
+    function setupChart() {
+        // Clear previous chart and tooltip to prevent duplicates on resize
+        d3.select("#chart").selectAll("*").remove();
+        d3.select("body").selectAll(".tooltip").remove();
+        d3.select("#legend").selectAll("*").remove();
+
+        const csvData = `Rank (UB),Model,Score,95% CI (±),Votes,Organization,License,Input_Price_per_1M_Tokens_USD,Source_URL
+1,gpt-5,1481,±11,"3,182",OpenAI,Proprietary,$1.25,https://platform.openai.com/docs/models/gpt-5
+2,gemini-2.5-pro,1460,±6,"26,703",Google,Proprietary,$1.25,https://ai.google.dev/gemini-api/docs/pricing
+2,o3-2025-04-16,1450,±5,"32,692",OpenAI,Proprietary,$10.00,https://gist.github.com/t3dotgg/a4bb252e590320e223e71c595e60e6be
+3,chatgpt-4o-latest-20250326,1442,±5,"31,219",OpenAI,Proprietary,$2.50,https://gist.github.com/t3dotgg/a4bb252e590320e223e71c595e60e6be
+4,gpt-4.5-preview-2025-02-27,1438,±6,"15,271",OpenAI,Proprietary,$75.00,https://gist.github.com/t3dotgg/a4bb252e590320e223e71c595e60e6be
+5,grok-4-0709,1429,±6,"13,314",xAI,Proprietary,$15.00,https://x.ai/pricing
+5,qwen3-235b-a22b-instruct-2507,1428,±9,"4,831",Alibaba,Apache 2.0,$1.50,https://replicate.com/alibaba/qwen-235b-chat
+6,claude-opus-4-20250514-thinking-16k,1420,±6,"18,461",Anthropic,Proprietary,$15.00,https://www.anthropic.com/pricing
+6,kimi-k2-0711-preview,1420,±6,"12,400",Moonshot,Modified MIT,$2.00,https://platform.moonshot.cn/pricing
+6,glm-4.5,1418,±12,"2,803",Zhipu,Proprietary,$1.50,https://open.bigmodel.cn/pricing
+7,deepseek-r1-0528,1417,±4,"18,662",DeepSeek,DeepSeek,Not Publicly Priced,N/A
+8,gpt-4-turbo-2024-04-09,1399,±4,"37,556",OpenAI,Proprietary,$10.00,https://openai.com/pricing/
+9,qwen2.5-max,1386,±4,"27,871",Alibaba,Proprietary,$1.50,https://replicate.com/alibaba/qwen-2.5-72b-chat
+9,claude-3-opus-20240229,1386,±4,"65,463",Anthropic,Proprietary,$15.00,https://www.anthropic.com/pricing
+10,deepseek-v2.5-0725,1384,±4,"19,268",DeepSeek,DeepSeek,Not Publicly Priced,N/A
+11,o4-mini-2025-04-16,1376,±6,"8,131",OpenAI,Proprietary,$1.10,https://gist.github.com/t3dotgg/a4bb252e590320e223e71c595e60e6be
+12,gpt-4-0613,1370,±4,"68,432",OpenAI,Proprietary,$30.00,https://openai.com/pricing/
+13,qwen2-72b-instruct,1368,±4,"47,609",Alibaba,Apache 2.0,$0.90,https://aws.amazon.com/bedrock/pricing/
+14,deepseek-v3-0324,1366,±6,"8,213",DeepSeek,MIT,Not Publicly Priced,N/A
+15,command-r-plus,1363,±4,"46,280",Cohere,CC-BY-NC,$3.00,https://cohere.com/pricing
+16,qwen2-57b-a14b-instruct,1359,±5,"19,166",Alibaba,Apache 2.0,$0.70,https://replicate.com/alibaba/qwen-2-57b-chat
+17,gemini-1.5-pro-001,1358,±3,"70,767",Google,Proprietary,$1.25,https://ai.google.dev/gemini-api/docs/pricing
+18,gemma-3-27b-it,1356,±5,"12,401",Google,Gemma,$0.20,https://replicate.com/pricing
+19,deepseek-r1-chat-0628,1352,±4,"32,012",DeepSeek,DeepSeek,Not Publicly Priced,N/A
+20,gpt-4-1106-preview,1342,±4,"91,481",OpenAI,Proprietary,$10.00,https://openai.com/pricing/
+21,claude-3.5-sonnet-20240620,1341,±3,"70,713",Anthropic,Proprietary,$3.00,https://www.anthropic.com/pricing
+22,gpt-4-0125-preview,1340,±4,"85,502",OpenAI,Proprietary,$10.00,https://openai.com/pricing/
+23,o1-preview,1335,±4,"33,170",OpenAI,Proprietary,$10.00,https://gist.github.com/t3dotgg/a4bb252e590320e223e71c595e60e6be
+24,llama-3.1-70b-instruct,1334,±4,"48,155",Meta,Llama 3.1,$0.79,https://aws.amazon.com/bedrock/pricing/
+25,mistral-large-2407,1332,±4,"43,153",Mistral,Mistral Research,$8.00,https://mistral.ai/pricing/
+26,athene-v2-chat,1331,±4,"23,803",NexusFlow,NexusFlow,Not Publicly Priced,N/A
+27,gemma-3-12b-it,1330,±8,"4,007",Google,Gemma,$0.15,https://replicate.com/pricing
+28,deepseek-v3,1329,±3,"22,835",DeepSeek,DeepSeek,Not Publicly Priced,N/A
+29,hunyuan-standard-2025-02-10,1328,±9,"3,710",Tencent,Proprietary,Not Publicly Priced,N/A
+30,gemini-1.5-flash-002,1326,±4,"35,042",Google,Proprietary,$0.35,https://ai.google.dev/gemini-api/docs/pricing
+31,qwq-32b,1324,±5,"9,805",Alibaba,Apache 2.0,Not Publicly Priced,N/A
+32,gemma-3-4b-it,1323,±8,"4,131",Google,Gemma,$0.10,https://replicate.com/pricing
+33,athene-70b-0725,1322,±5,"19,531",NexusFlow,CC-BY-NC-4.0,Not Publicly Priced,N/A
+34,grok-2-mini-2024-08-13,1321,±4,"51,446",xAI,Proprietary,$0.25,https://x.ai/pricing
+35,deepseek-v2.5,1319,±4,"24,801",DeepSeek,DeepSeek,Not Publicly Priced,N/A
+36,mistral-large-2402,1318,±4,"46,478",Mistral,Proprietary,$8.00,https://mistral.ai/pricing/
+37,claude-3-sonnet-20240229,1317,±3,"98,609",Anthropic,Proprietary,$3.00,https://www.anthropic.com/pricing
+38,gpt-4o-mini-2024-07-18,1316,±4,"45,091",OpenAI,Proprietary,$0.15,https://openai.com/pricing/
+39,glm-4-air,1315,±8,"4,772",Zhipu,Proprietary,$0.15,https://open.bigmodel.cn/pricing
+40,gemini-1.5-flash-api-0514,1314,±5,"17,117",Google,Proprietary,$0.35,https://ai.google.dev/gemini-api/docs/pricing
+41,qwen-plus,1313,±6,"7,654",Alibaba,Proprietary,$1.50,https://replicate.com/alibaba/qwen-1.5-72b-chat
+42,llama-3-70b-instruct,1310,±3,"90,733",Meta,Llama 3,$0.79,https://aws.amazon.com/bedrock/pricing/
+43,command-r,1309,±4,"44,204",Cohere,CC-BY-NC,$0.50,https://cohere.com/pricing
+44,o1-mini,1304,±2,"54,954",OpenAI,Proprietary,$0.15,https://gist.github.com/t3dotgg/a4bb252e590320e223e71c595e60e6be
+45,claude-3-haiku-20240307,1289,±3,"76,712",Anthropic,Proprietary,$0.25,https://www.anthropic.com/pricing
+46,llama-3.1-8b-instruct,1285,±4,"43,736",Meta,Llama 3.1,$0.18,https://aws.amazon.com/bedrock/pricing/
+47,mistral-8x22b-instruct-v0.1,1283,±4,"30,836",Mistral,Apache 2.0,$0.65,https://deepinfra.com/pricing
+48,qwen1.5-110b-chat,1281,±5,"12,506",Alibaba,Apache 2.0,$1.20,https://replicate.com/alibaba/qwen-1.5-110b-chat
+49,dbrx-instruct,1279,±4,"41,455",Databricks,Databricks,$1.00,https://www.databricks.com/product/pricing/dbrx
+50,mixtral-8x7b-instruct-v0.1,1278,±3,"95,394",Mistral,Apache 2.0,$0.27,https://deepinfra.com/pricing`;
+
+        const parsedData = d3.csvParse(csvData);
+
+        const llmData = parsedData.map(d => {
+            const costString = d.Input_Price_per_1M_Tokens_USD;
+            let cost = null;
+
+            if (costString && typeof costString === 'string' && costString.toLowerCase().trim() !== 'not publicly priced') {
+                cost = parseFloat(costString.replace('$', ''));
+            }
+            
+            if (cost !== null && !isNaN(cost)) {
+                const family = d.Organization;
+                return {
+                    name: d.Model,
+                    elo: +d.Score,
+                    cost: cost,
+                    family: family,
+                    votes: d.Votes
+                };
+            }
+            return null;
+        }).filter(d => d !== null);
+
+        // --- Pareto Frontier Calculation ---
+        llmData.sort((a, b) => a.cost - b.cost);
+        const paretoFrontier = [];
+        let maxElo = -1;
+        for (const model of llmData) {
+            if (model.elo > maxElo) {
+                paretoFrontier.push(model);
+                maxElo = model.elo;
+            }
+        }
+        
+        // --- Chart Setup ---
+        const container = d3.select("#chart-container");
+        const svgWidth = container.node().getBoundingClientRect().width;
+        const svgHeight = 600;
+        const margin = { top: 20, right: 30, bottom: 60, left: 70 };
+        const width = svgWidth - margin.left - margin.right;
+        const height = svgHeight - margin.top - margin.bottom;
+
+        const svg = d3.select("#chart")
+            .attr("width", svgWidth)
+            .attr("height", svgHeight)
+            .append("g")
+            .attr("transform", `translate(${margin.left},${margin.top})`);
+        
+        // --- Scales ---
+        const xScale = d3.scaleLog()
+            .domain([d3.max(llmData, d => d.cost), 0.1]) // Invert the domain for reversed axis
+            .range([0, width]); // Keep range from left to right
+
+        const yScale = d3.scaleLinear()
+            .domain(d3.extent(llmData, d => d.elo)).nice()
+            .range([height, 0]);
+        
+        const color = d3.scaleOrdinal(d3.schemeCategory10);
+        
+        // --- Axes and Grid ---
+        const xAxis = d3.axisBottom(xScale).ticks(10, "$.2f");
+        const yAxis = d3.axisLeft(yScale);
+
+        svg.append("g")
+            .attr("class", "grid")
+            .attr("transform", `translate(0,${height})`)
+            .call(d3.axisBottom(xScale).tickSize(-height).tickFormat(""));
+
+        svg.append("g")
+            .attr("class", "grid")
+            .call(d3.axisLeft(yScale).tickSize(-width).tickFormat(""));
+
+        svg.append("g")
+            .attr("transform", `translate(0,${height})`)
+            .call(xAxis)
+            .selectAll("text")
+            .style("text-anchor", "end")
+            .attr("dx", "-.8em")
+            .attr("dy", ".15em")
+            .attr("transform", "rotate(-45)");
+        
+        svg.append("g").call(yAxis);
+
+        svg.append("text")
+            .attr("class", "axis-label")
+            .attr("text-anchor", "middle")
+            .attr("x", width / 2)
+            .attr("y", height + margin.bottom - 5)
+            .text("Cost per 1M Input Tokens ($) - Log Scale");
+
+        svg.append("text")
+            .attr("class", "axis-label")
+            .attr("transform", "rotate(-90)")
+            .attr("text-anchor", "middle")
+            .attr("y", -margin.left + 20)
+            .attr("x", -height / 2)
+            .text("Chatbot Arena Elo Score");
+
+        // --- Tooltip ---
+        const tooltip = d3.select("body").append("div")
+            .attr("class", "tooltip");
+
+        // --- Draw Pareto Line ---
+        const line = d3.line()
+            .x(d => xScale(d.cost))
+            .y(d => yScale(d.elo));
+
+        // Sort frontier by cost descending to draw line from left to right
+        const sortedFrontier = [...paretoFrontier].sort((a,b) => b.cost - a.cost);
+
+        svg.append("path")
+            .datum(sortedFrontier)
+            .attr("class", "pareto-line")
+            .attr("d", line);
+
+        // --- Draw Dots and Labels ---
+        const nodes = svg.selectAll(".node")
+            .data(llmData)
+            .enter()
+            .append("g")
+            .attr("class", "node")
+            .attr("transform", d => `translate(${xScale(d.cost)}, ${yScale(d.elo)})`);
+        
+        nodes.append("circle")
+            .attr("class", "dot")
+            .attr("r", 6)
+            .attr("fill", d => color(d.family))
+            .attr("stroke", d => color(d.family))
+            .attr("fill-opacity", 0.7);
+
+        nodes.append("text")
+            .attr("class", "label")
+            .attr("x", 10)
+            .attr("y", 3)
+            .text(d => d.name);
+            
+        nodes.on("mouseover", function(event, d) {
+                d3.select(this).select('circle').attr('r', 8).attr("fill-opacity", 1);
+                tooltip.transition().duration(200).style("opacity", .95);
+                tooltip.html(`<strong>${d.name}</strong>
+                              Elo Score: ${d.elo}<br/>
+                              Cost: $${d.cost.toFixed(2)}/1M tokens<br/>
+                              Family: ${d.family}<br/>
+                              Votes: ${d.votes}`)
+                    .style("left", (event.pageX + 15) + "px")
+                    .style("top", (event.pageY - 28) + "px");
+            })
+            .on("mouseout", function(d) {
+                d3.select(this).select('circle').attr('r', 6).attr("fill-opacity", 0.7);
+                tooltip.transition().duration(500).style("opacity", 0);
+            });
+
+        // --- Legend ---
+        const families = [...new Set(llmData.map(d => d.family))];
+        const legend = d3.select("#legend");
+        families.forEach(family => {
+            const legendItem = legend.append("div")
+                .attr("class", "legend-item");
+            legendItem.append("div")
+                .attr("class", "legend-color")
+                .style("background-color", color(family));
+            legendItem.append("span").text(family);
+        });
+    }
+
+    // Load the chart
+    window.onload = setupChart;
+    window.onresize = setupChart;
+
+</script>
+</body>
+</html>

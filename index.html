@@ -107,7 +107,7 @@
 <body>
 
 <div id="chart-container">
-    <h1>LLM Pareto Frontier: August 2025</h1>
+    <h1>LLM Pareto Frontier: Sept 1, 2025</h1>
     <p class="subtitle">Comparing Chatbot Arena Elo scores against API cost ($/1M input tokens). Hover over points for details.</p>
     <svg id="chart"></svg>
     <div id="legend" class="legend"></div>
@@ -122,14 +122,15 @@
         d3.select("#legend").selectAll("*").remove();
 
         const csvData = `Rank (UB),Model,Score,95% CI (±),Votes,Organization,License,Input_Price_per_1M_Tokens_USD,Source_URL
-1,gpt-5,1481,±11,"3,182",OpenAI,Proprietary,$1.25,https://platform.openai.com/docs/models/gpt-5
-2,gemini-2.5-pro,1460,±6,"26,703",Google,Proprietary,$1.25,https://ai.google.dev/gemini-api/docs/pricing
+
+1,gemini-2.5-pro,1456,±5,"35,405",Google,Proprietary,$1.25,https://ai.google.dev/gemini-api/docs/pricing
+2,gpt-5,1447,±7,"11,405",OpenAI,Proprietary,$1.25,https://platform.openai.com/docs/models/gpt-5
+2,claude-opus-4-20250514-thinking-16k,1447,±7,"8,615",Anthropic,Proprietary,$15.00,https://www.anthropic.com/pricing
 2,o3-2025-04-16,1450,±5,"32,692",OpenAI,Proprietary,$10.00,https://gist.github.com/t3dotgg/a4bb252e590320e223e71c595e60e6be
 3,chatgpt-4o-latest-20250326,1442,±5,"31,219",OpenAI,Proprietary,$2.50,https://gist.github.com/t3dotgg/a4bb252e590320e223e71c595e60e6be
 4,gpt-4.5-preview-2025-02-27,1438,±6,"15,271",OpenAI,Proprietary,$75.00,https://gist.github.com/t3dotgg/a4bb252e590320e223e71c595e60e6be
 5,grok-4-0709,1429,±6,"13,314",xAI,Proprietary,$15.00,https://x.ai/pricing
 5,qwen3-235b-a22b-instruct-2507,1428,±9,"4,831",Alibaba,Apache 2.0,$1.50,https://replicate.com/alibaba/qwen-235b-chat
-6,claude-opus-4-20250514-thinking-16k,1420,±6,"18,461",Anthropic,Proprietary,$15.00,https://www.anthropic.com/pricing
 6,kimi-k2-0711-preview,1420,±6,"12,400",Moonshot,Modified MIT,$2.00,https://platform.moonshot.cn/pricing
 6,glm-4.5,1418,±12,"2,803",Zhipu,Proprietary,$1.50,https://open.bigmodel.cn/pricing
 7,deepseek-r1-0528,1417,±4,"18,662",DeepSeek,DeepSeek,Not Publicly Priced,N/A

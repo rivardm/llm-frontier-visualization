@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The AI Cosmos: Pareto Frontier</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Exo+2:wght@300;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Exo 2', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            background: radial-gradient(circle at bottom right, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            background-color: #0b0c10;
+            margin: 0;
+            padding: 2rem;
+            color: #c5c6c7;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #chart-container {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 0 30px rgba(66, 133, 244, 0.1);
+            width: 90%;
+            max-width: 1200px;
+            position: relative;
+        }
+
+        h1 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            text-align: center;
+            background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 20px rgba(79, 172, 254, 0.5);
+        }
+
+        p.subtitle {
+            text-align: center;
+            margin-top: 0;
+            margin-bottom: 2rem;
+            color: #8dadbb;
+            font-size: 1rem;
+            letter-spacing: 1px;
+        }
+
+        .tooltip {
+            position: absolute;
+            text-align: left;
+            padding: 12px;
+            font-size: 14px;
+            background: rgba(11, 12, 16, 0.95);
+            border: 1px solid #45a29e;
+            border-radius: 8px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+            box-shadow: 0 0 15px rgba(69, 162, 158, 0.4);
+            color: #fff;
+            z-index: 100;
+            font-family: 'Exo 2', sans-serif;
+        }
+
+        .tooltip strong {
+            display: block;
+            margin-bottom: 4px;
+            font-size: 16px;
+            color: #66fcf1;
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        .axis-label {
+            font-size: 14px;
+            fill: #8dadbb;
+            font-weight: 600;
+            font-family: 'Orbitron', sans-serif;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .tick text {
+            fill: #8dadbb;
+            font-family: 'Exo 2', sans-serif;
+        }
+
+        .grid line {
+            stroke: rgba(255, 255, 255, 0.05);
+        }
+
+        .domain {
+            stroke: rgba(255, 255, 255, 0.2);
+        }
+
+        .pareto-line {
+            fill: none;
+            stroke: #66fcf1;
+            stroke-width: 3px;
+            stroke-dasharray: 5 5;
+            filter: drop-shadow(0 0 5px #66fcf1);
+            opacity: 0.6;
+        }
+
+        /* Whimsical Animations */
+        @keyframes pulse-google {
+            0% { filter: drop-shadow(0 0 5px #4285F4); r: 8; }
+            50% { filter: drop-shadow(0 0 15px #4285F4); r: 10; }
+            100% { filter: drop-shadow(0 0 5px #4285F4); r: 8; }
+        }
+
+        @keyframes float {
+            0% { transform: translate(0, 0); }
+            50% { transform: translate(0, -3px); }
+            100% { transform: translate(0, 0); }
+        }
+
+        .node-google circle, .node-google polygon {
+            animation: pulse-google 3s infinite ease-in-out;
+        }
+
+        .node:not(.node-google) {
+            opacity: 0.6;
+            transition: opacity 0.3s;
+        }
+
+        .node:hover {
+            opacity: 1 !important;
+            cursor: pointer;
+        }
+
+        /* Starry Background */
+        .star {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            opacity: 0.3;
+            animation: twinkle 5s infinite;
+        }
+
+        @keyframes twinkle {
+            0% { opacity: 0.3; }
+            50% { opacity: 0.8; transform: scale(1.2); }
+            100% { opacity: 0.3; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="stars-container"></div>
+
+<div id="chart-container">
+    <h1>THE COSMIC FRONTIER</h1>
+    <p class="subtitle">Navigating Intelligence vs. Cost • Nov 24, 2025</p>
+    <div id="chart-wrapper">
+        <svg id="chart"></svg>
+    </div>
+</div>
+
+<script>
+    // --- Starry Background Generation ---
+    function createStars() {
+        const numStars = 50;
+        const container = document.body;
+        for (let i = 0; i < numStars; i++) {
+            const star = document.createElement('div');
+            star.className = 'star';
+            const xy = [Math.random() * 100, Math.random() * 100];
+            const duration = Math.random() * 5 + 3;
+            const size = Math.random() * 2 + 1;
+            
+            star.style.left = xy[0] + '%';
+            star.style.top = xy[1] + '%';
+            star.style.width = size + 'px';
+            star.style.height = size + 'px';
+            star.style.animationDuration = duration + 's';
+            
+            container.appendChild(star);
+        }
+    }
+    createStars();
+
+    // --- Chart Logic ---
+    function setupChart() {
+        d3.select("#chart").selectAll("*").remove();
+        d3.select("body").selectAll(".tooltip").remove();
+
+        const csvData = `Rank,Model,Score,Organization,Input_Price_per_1M_Tokens_USD
+1,gemini-3-pro,1495,Google,2.00
+2,grok-4.1-thinking,1481,xAI,5.00
+3,grok-4.1,1462,xAI,3.50
+4,gpt-5.1-high,1463,OpenAI,15.00
+5,gemini-2.5-pro,1451,Google,1.25
+6,claude-sonnet-4.5-thinking-32k,1449,Anthropic,3.00
+7,claude-opus-4.1-thinking-16k,1449,Anthropic,15.00
+8,claude-sonnet-4.5,1444,Anthropic,3.00
+9,gpt-4.5-preview-2025-02-27,1442,OpenAI,10.00
+10,claude-opus-4.1,1440,Anthropic,15.00
+11,qwen3-max,1440,Alibaba,1.60
+12,gpt-5.1,1439,OpenAI,5.00
+13,kimi-k2-thinking,1438,Moonshot,2.00
+14,gpt-5-high,1437,OpenAI,15.00
+15,ernie-5.0,1436,Baidu,2.00
+16,gpt-4o-latest-2025-03-26,1429,OpenAI,2.50
+17,deepseek-r1-0528,1426,DeepSeek,0.14
+18,grok-3-preview,1423,xAI,3.50
+19,deepseek-v3.2-exp,1421,DeepSeek,0.14
+20,qwen3-235b-instruct,1418,Alibaba,1.50
+21,deepseek-v3.1,1418,DeepSeek,0.14
+22,gpt-5-chat,1413,OpenAI,5.00
+23,gpt-4.1-2025-04-14,1412,OpenAI,2.00
+24,gemini-2.5-flash,1412,Google,0.30
+25,mistral-medium-2508,1410,Mistral,0.40
+26,glm-4.5,1408,Zhipu,1.50
+27,claude-haiku-4.5,1402,Anthropic,1.00
+28,mistral-large-2,1389,Mistral,2.00
+29,qwen-plus,1370,Alibaba,0.40
+30,llama-3.1-405b,1370,Meta,2.00
+31,llama-3.1-70b-instruct,1390,Meta,0.60
+32,deepseek-v2.5,1379,DeepSeek,0.14
+33,claude-3.5-sonnet,1376,Anthropic,3.00
+34,gpt-4o-mini,1375,OpenAI,0.15
+35,o1-preview,1392,OpenAI,15.00
+36,o1-mini,1367,OpenAI,1.10
+37,gemini-1.5-pro,1398,Google,1.25
+38,gemini-1.5-flash,1383,Google,0.075
+39,command-r-plus,1401,Cohere,3.00
+40,gemma-3-27b,1402,Google,0.20
+41,mistral-large-2402,1377,Mistral,8.00
+42,gpt-4-turbo,1409,OpenAI,10.00`;
+
+        const parsedData = d3.csvParse(csvData);
+        const llmData = parsedData.map(d => {
+            const cost = parseFloat(d.Input_Price_per_1M_Tokens_USD);
+            if (!isNaN(cost)) {
+                return {
+                    name: d.Model,
+                    elo: +d.Score,
+                    cost: cost,
+                    family: d.Organization
+                };
+            }
+            return null;
+        }).filter(d => d !== null);
+
+        // Sort for pareto calc
+        llmData.sort((a, b) => a.cost - b.cost); 
+        const paretoFrontier = [];
+        let maxElo = -1;
+        for (const model of llmData) {
+            if (model.elo > maxElo) {
+                paretoFrontier.push(model);
+                maxElo = model.elo;
+            }
+        }
+        
+        const container = d3.select("#chart-container");
+        const containerWidth = container.node().getBoundingClientRect().width;
+        const svgHeight = 600; 
+        const margin = { top: 30, right: 60, bottom: 60, left: 60 };
+        const width = containerWidth - margin.left - margin.right;
+        const height = svgHeight - margin.top - margin.bottom;
+
+        const svg = d3.select("#chart")
+            .attr("width", containerWidth)
+            .attr("height", svgHeight)
+            .append("g")
+            .attr("transform", `translate(${margin.left},${margin.top})`);
+        
+        // --- Scales ---
+        const xMin = d3.min(llmData, d => d.cost) * 0.8;
+        const xMax = d3.max(llmData, d => d.cost) * 1.5;
+        
+        // Reversed X: High Price (Left) -> Low Price (Right)
+        const xScale = d3.scaleLog()
+            .domain([xMin, xMax]) 
+            .range([width, 0]); 
+
+        const yScale = d3.scaleLinear()
+            .domain([1350, d3.max(llmData, d => d.elo) + 10]) 
+            .range([height, 0]);
+        
+        // --- Colors ---
+        const brandColors = {
+            "xAI": "#555555",
+            "DeepSeek": "#9d4ecc",
+            "OpenAI": "#10a37f",
+            "Google": "#4285F4", // Special handling later
+            "Anthropic": "#d97757",
+            "Meta": "#0668E1",
+            "Mistral": "#f5a623",
+            "Alibaba": "#ff4500",
+            "Cohere": "#395b64"
+        };
+        const defaultColor = d3.scaleOrdinal(d3.schemeCategory10);
+        const getColor = (family) => brandColors[family] || defaultColor(family);
+        
+        // --- Grid & Axes ---
+        // Custom Glow Grid
+        const makeXGrid = () => d3.axisBottom(xScale).ticks(5);
+        const makeYGrid = () => d3.axisLeft(yScale);
+
+        svg.append("g")
+            .attr("class", "grid")
+            .attr("transform", `translate(0,${height})`)
+            .call(makeXGrid().tickSize(-height).tickFormat(""))
+            .style("stroke-opacity", "0.1");
+
+        svg.append("g")
+            .attr("class", "grid")
+            .call(makeYGrid().tickSize(-width).tickFormat(""))
+            .style("stroke-opacity", "0.1");
+
+        // Axis Text
+        const xAxis = d3.axisBottom(xScale).ticks(5, "$.2f").tickFormat(d => "$" + d);
+        const yAxis = d3.axisLeft(yScale);
+
+        svg.append("g")
+            .attr("transform", `translate(0,${height})`)
+            .call(xAxis)
+            .selectAll("text")
+            .attr("dy", "1em")
+            .style("font-size", "12px");
+        
+        svg.append("g").call(yAxis)
+            .selectAll("text")
+            .style("font-size", "12px");
+
+        svg.append("text")
+            .attr("class", "axis-label")
+            .attr("text-anchor", "middle")
+            .attr("x", width / 2)
+            .attr("y", height + 50)
+            .text("Credits (Cost per 1M Tokens) ← Expensive");
+
+        svg.append("text")
+            .attr("class", "axis-label")
+            .attr("transform", "rotate(-90)")
+            .attr("text-anchor", "middle")
+            .attr("y", -45)
+            .attr("x", -height / 2)
+            .text("Intelligence (Elo Score)");
+
+        // --- Pareto Constellation ---
+        const sortedFrontier = [...paretoFrontier].sort((a,b) => b.cost - a.cost);
+        const line = d3.line()
+            .x(d => xScale(d.cost))
+            .y(d => yScale(d.elo))
+            .curve(d3.curveStepBefore); 
+
+        // Glowing Line Path
+        svg.append("path")
+            .datum(sortedFrontier)
+            .attr("class", "pareto-line")
+            .attr("d", line);
+
+        // --- Nodes ---
+        const tooltip = d3.select("body").append("div").attr("class", "tooltip");
+        
+        const nodes = svg.selectAll(".node")
+            .data(llmData)
+            .enter()
+            .append("g")
+            .attr("class", d => d.family === "Google" ? "node node-google" : "node")
+            .attr("transform", d => `translate(${xScale(d.cost)}, ${yScale(d.elo)})`);
+
+        // Standard Nodes (Circles)
+        nodes.filter(d => d.family !== "Google")
+            .append("circle")
+            .attr("r", 5)
+            .attr("fill", d => getColor(d.family))
+            .attr("stroke", "white")
+            .attr("stroke-width", 1);
+
+        // Google Nodes (Gemstones/Diamonds) - The "Whimsical" part for slides
+        const diamondSymbol = d3.symbol().type(d3.symbolDiamond).size(200);
+        
+        nodes.filter(d => d.family === "Google")
+            .append("path")
+            .attr("d", diamondSymbol)
+            .attr("fill", "#4285F4") // Google Blue
+            .attr("stroke", "#fff")
+            .attr("stroke-width", 2)
+            .style("filter", "drop-shadow(0 0 8px #4285F4)");
+
+        // Add "Gemini" star labels directly for top Google models
+        nodes.filter(d => d.family === "Google" && d.elo > 1400)
+            .append("text")
+            .attr("x", 12)
+            .attr("y", 4)
+            .text(d => d.name.replace("gemini-", "").replace("-pro", " Pro"))
+            .style("fill", "#66fcf1")
+            .style("font-size", "10px")
+            .style("font-family", "Orbitron")
+            .style("font-weight", "bold")
+            .style("text-shadow", "0 0 5px #000");
+
+        // --- Interaction ---
+        nodes.on("mouseover", function(event, d) {
+            d3.select(this).style("opacity", 1);
+            
+            // Highlight effect
+            if (d.family === "Google") {
+                d3.select(this).select("path")
+                  .transition().duration(200)
+                  .attr("transform", "scale(1.5)");
+            } else {
+                d3.select(this).select("circle")
+                  .transition().duration(200)
+                  .attr("r", 8);
+            }
+
+            tooltip.transition().duration(200).style("opacity", 1);
+            tooltip.html(`
+                <strong>${d.name}</strong>
+                <div style="margin-top:5px; color:#c5c6c7;">
+                Score: <span style="color:#fff;">${d.elo}</span><br/>
+                Cost: <span style="color:#fff;">$${d.cost.toFixed(2)}</span><br/>
+                <span style="color:${getColor(d.family)}">${d.family}</span>
+                </div>
+            `)
+            .style("left", (event.pageX + 15) + "px")
+            .style("top", (event.pageY - 28) + "px");
+        })
+        .on("mouseout", function(d) {
+            if (d.family === "Google") {
+                d3.select(this).select("path")
+                  .transition().duration(200)
+                  .attr("transform", "scale(1)");
+            } else {
+                d3.select(this).select("circle")
+                  .transition().duration(200)
+                  .attr("r", 5);
+            }
+            tooltip.transition().duration(500).style("opacity", 0);
+        });
+
+    }
+
+    window.onload = setupChart;
+    window.onresize = setupChart;
+
+</script>
+</body>
+</html>

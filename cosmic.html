@@ -32,6 +32,9 @@
             width: 90%;
             max-width: 1200px;
             position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
 
         h1 {
@@ -49,10 +52,16 @@
         p.subtitle {
             text-align: center;
             margin-top: 0;
-            margin-bottom: 2rem;
+            margin-bottom: 1rem;
             color: #8dadbb;
             font-size: 1rem;
             letter-spacing: 1px;
+        }
+
+        #chart-wrapper {
+            width: 100%;
+            display: flex;
+            justify-content: center;
         }
 
         .tooltip {
@@ -118,12 +127,6 @@
             100% { filter: drop-shadow(0 0 5px #4285F4); r: 8; }
         }
 
-        @keyframes float {
-            0% { transform: translate(0, 0); }
-            50% { transform: translate(0, -3px); }
-            100% { transform: translate(0, 0); }
-        }
-
         .node-google circle, .node-google polygon {
             animation: pulse-google 3s infinite ease-in-out;
         }
@@ -145,6 +148,7 @@
             border-radius: 50%;
             opacity: 0.3;
             animation: twinkle 5s infinite;
+            z-index: -1;
         }
 
         @keyframes twinkle {
@@ -152,6 +156,46 @@
             50% { opacity: 0.8; transform: scale(1.2); }
             100% { opacity: 0.3; }
         }
+
+        /* Legend Styles */
+        #legend {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 1.5rem;
+            margin-top: 1rem;
+            width: 100%;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            font-size: 0.9rem;
+            color: #c5c6c7;
+            cursor: default;
+            transition: color 0.3s;
+        }
+
+        .legend-item:hover {
+            color: #fff;
+        }
+
+        .legend-symbol {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+            box-shadow: 0 0 5px rgba(255,255,255,0.2);
+        }
+
+        .legend-symbol.diamond {
+            border-radius: 0;
+            transform: rotate(45deg);
+            width: 10px;
+            height: 10px;
+            box-shadow: 0 0 8px currentColor;
+        }
+
     </style>
 </head>
 <body>
@@ -164,6 +208,7 @@
     <div id="chart-wrapper">
         <svg id="chart"></svg>
     </div>
+    <div id="legend"></div>
 </div>
 
 <script>
@@ -193,6 +238,7 @@
     function setupChart() {
         d3.select("#chart").selectAll("*").remove();
         d3.select("body").selectAll(".tooltip").remove();
+        d3.select("#legend").selectAll("*").remove();
 
         const csvData = `Rank,Model,Score,Organization,Input_Price_per_1M_Tokens_USD
 1,gemini-3-pro,1495,Google,2.00
@@ -265,8 +311,9 @@
         
         const container = d3.select("#chart-container");
         const containerWidth = container.node().getBoundingClientRect().width;
-        const svgHeight = 600; 
-        const margin = { top: 30, right: 60, bottom: 60, left: 60 };
+        // Make chart slightly shorter to accommodate legend
+        const svgHeight = 550; 
+        const margin = { top: 30, right: 60, bottom: 40, left: 60 };
         const width = containerWidth - margin.left - margin.right;
         const height = svgHeight - margin.top - margin.bottom;
 
@@ -291,10 +338,10 @@
         
         // --- Colors ---
         const brandColors = {
-            "xAI": "#555555",
+            "xAI": "#7a7a7a", // Lighter grey for visibility against dark bg
             "DeepSeek": "#9d4ecc",
             "OpenAI": "#10a37f",
-            "Google": "#4285F4", // Special handling later
+            "Google": "#4285F4", 
             "Anthropic": "#d97757",
             "Meta": "#0668E1",
             "Mistral": "#f5a623",
@@ -339,7 +386,7 @@
             .attr("class", "axis-label")
             .attr("text-anchor", "middle")
             .attr("x", width / 2)
-            .attr("y", height + 50)
+            .attr("y", height + 40)
             .text("Credits (Cost per 1M Tokens) ← Expensive");
 
         svg.append("text")
@@ -381,7 +428,7 @@
             .attr("stroke", "white")
             .attr("stroke-width", 1);
 
-        // Google Nodes (Gemstones/Diamonds) - The "Whimsical" part for slides
+        // Google Nodes (Gemstones/Diamonds)
         const diamondSymbol = d3.symbol().type(d3.symbolDiamond).size(200);
         
         nodes.filter(d => d.family === "Google")
@@ -392,7 +439,7 @@
             .attr("stroke-width", 2)
             .style("filter", "drop-shadow(0 0 8px #4285F4)");
 
-        // Add "Gemini" star labels directly for top Google models
+        // Add "Gemini" labels for top Google models
         nodes.filter(d => d.family === "Google" && d.elo > 1400)
             .append("text")
             .attr("x", 12)
@@ -442,6 +489,29 @@
                   .attr("r", 5);
             }
             tooltip.transition().duration(500).style("opacity", 0);
+        });
+
+        // --- Legend Generation ---
+        const families = [...new Set(llmData.map(d => d.family))].sort();
+        const legendContainer = d3.select("#legend");
+        
+        families.forEach(family => {
+            const item = legendContainer.append("div").attr("class", "legend-item");
+            const color = getColor(family);
+            
+            // Create symbol div
+            const symbol = item.append("div")
+                .attr("class", "legend-symbol")
+                .style("background-color", color);
+                
+            // Apply special diamond class for Google in legend
+            if (family === "Google") {
+                symbol.classed("diamond", true);
+                symbol.style("background-color", "#4285F4"); // Ensure bright blue
+                symbol.style("color", "#4285F4"); // For box-shadow
+            }
+            
+            item.append("span").text(family);
         });
 
     }

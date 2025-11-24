@@ -177,6 +177,22 @@
 42,gpt-4-turbo,1409,OpenAI,10.00`;
 
         const parsedData = d3.csvParse(csvData);
+        
+        // Map Organizations to Pricing/Doc Pages
+        const orgUrls = {
+            "Google": "https://ai.google.dev/gemini-api/docs/pricing",
+            "OpenAI": "https://openai.com/api/pricing/",
+            "Anthropic": "https://www.anthropic.com/pricing",
+            "xAI": "https://x.ai/api",
+            "DeepSeek": "https://api-docs.deepseek.com/quick_start/pricing",
+            "Mistral": "https://mistral.ai/technology/#pricing",
+            "Cohere": "https://cohere.com/pricing",
+            "Alibaba": "https://www.alibabacloud.com/help/en/model-studio/developer-reference/billing-for-model-studio",
+            "Meta": "https://www.llama.com/",
+            "Baidu": "https://cloud.baidu.com/product/wenxinworkshop",
+            "Zhipu": "https://open.bigmodel.cn/pricing",
+            "Moonshot": "https://platform.moonshot.cn/pricing"
+        };
 
         const llmData = parsedData.map(d => {
             const cost = parseFloat(d.Input_Price_per_1M_Tokens_USD);
@@ -186,14 +202,15 @@
                     name: d.Model,
                     elo: +d.Score,
                     cost: cost,
-                    family: d.Organization
+                    family: d.Organization,
+                    url: orgUrls[d.Organization] || "#"
                 };
             }
             return null;
         }).filter(d => d !== null);
 
         // --- Pareto Frontier Calculation ---
-        llmData.sort((a, b) => a.cost - b.cost); // Keep this sort for calculation logic
+        llmData.sort((a, b) => a.cost - b.cost); 
         const paretoFrontier = [];
         let maxElo = -1;
         for (const model of llmData) {
@@ -241,7 +258,10 @@
             "Meta": "#0668E1",        // Meta Blue
             "Mistral": "#f5a623",     // Mistral Gold
             "Alibaba": "#ff4500",     // OrangeRed
-            "Cohere": "#395b64"       // Teal/Slate
+            "Cohere": "#395b64",      // Teal/Slate
+            "Baidu": "#2932e1",
+            "Zhipu": "#3498db",
+            "Moonshot": "#e74c3c"
         };
         
         const defaultColor = d3.scaleOrdinal(d3.schemeCategory10);
@@ -323,7 +343,9 @@
             .attr("class", "node")
             .attr("transform", d => `translate(${xScale(d.cost)}, ${yScale(d.elo)})`);
         
-        nodes.append("circle")
+        // Render CIRCLES for everyone EXCEPT Google
+        nodes.filter(d => d.family !== "Google")
+            .append("circle")
             .attr("class", "dot")
             .attr("r", 6)
             .attr("fill", d => getColor(d.family))
@@ -331,20 +353,44 @@
             .attr("stroke-width", 1)
             .attr("fill-opacity", 0.8);
 
+        // Render GOOGLE LOGO for Google
+        nodes.filter(d => d.family === "Google")
+            .append("image")
+            .attr("xlink:href", "https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg")
+            .attr("width", 24)
+            .attr("height", 24)
+            .attr("x", -12)
+            .attr("y", -12)
+            .attr("class", "dot");
+
         // Only label the very top models or Pareto frontier to avoid clutter
         nodes.filter(d => paretoFrontier.includes(d) || d.elo > 1460)
             .append("text")
             .attr("class", "label")
-            .attr("x", 8)
-            .attr("y", 3)
+            .attr("x", 12)
+            .attr("y", 4)
             .text(d => d.name);
             
         // Interactive events
-        nodes.on("mouseover", function(event, d) {
-                d3.select(this).raise().select('circle')
-                    .attr('r', 10)
-                    .attr("fill-opacity", 1)
-                    .attr("stroke", "#333");
+        nodes.on("click", function(event, d) {
+                if (d.url && d.url !== "#") {
+                    window.open(d.url, '_blank');
+                }
+            })
+            .on("mouseover", function(event, d) {
+                // Handle hover scaling differently for Circle vs Image
+                if (d.family === "Google") {
+                    d3.select(this).select('image')
+                        .attr('width', 36)
+                        .attr('height', 36)
+                        .attr('x', -18)
+                        .attr('y', -18);
+                } else {
+                    d3.select(this).select('circle')
+                        .attr('r', 10)
+                        .attr("fill-opacity", 1)
+                        .attr("stroke", "#333");
+                }
                 
                 tooltip.transition().duration(200).style("opacity", .95);
                 tooltip.html(`
@@ -353,16 +399,25 @@
                     Elo: <span style="color:#000; font-weight:600;">${d.elo}</span><br/>
                     Cost: <span style="color:#000; font-weight:600;">$${d.cost.toFixed(2)}</span> / 1M input<br/>
                     Org: ${d.family}
+                    <br/><span style="color:#311b92; font-size:11px;">(Click for docs)</span>
                     </div>
                 `)
                     .style("left", (event.pageX + 15) + "px")
                     .style("top", (event.pageY - 28) + "px");
             })
             .on("mouseout", function(d) {
-                d3.select(this).select('circle')
-                    .attr('r', 6)
-                    .attr("fill-opacity", 0.8)
-                    .attr("stroke", "#fff");
+                if (d.family === "Google") {
+                    d3.select(this).select('image')
+                        .attr('width', 24)
+                        .attr('height', 24)
+                        .attr('x', -12)
+                        .attr('y', -12);
+                } else {
+                    d3.select(this).select('circle')
+                        .attr('r', 6)
+                        .attr("fill-opacity", 0.8)
+                        .attr("stroke", "#fff");
+                }
                 tooltip.transition().duration(500).style("opacity", 0);
             });
 

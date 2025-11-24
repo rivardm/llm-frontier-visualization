@@ -47,6 +47,7 @@
             opacity: 0;
             transition: opacity 0.2s;
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            z-index: 10;
         }
         .tooltip strong {
             display: block;
@@ -68,6 +69,7 @@
         }
         .dot {
             stroke-width: 1.5px;
+            transition: all 0.2s;
         }
         .node {
             cursor: pointer;
@@ -83,6 +85,7 @@
             stroke: #311b92;
             stroke-width: 5px;
             stroke-dasharray: 4 4;
+            opacity: 0.5;
         }
         .legend {
             display: flex;
@@ -102,14 +105,21 @@
             border-radius: 50%;
             margin-right: 8px;
         }
+        /* Make chart responsive */
+        svg {
+            width: 100%;
+            height: auto;
+        }
     </style>
 </head>
 <body>
 
 <div id="chart-container">
-    <h1>LLM Pareto Frontier: Oct 22, 2025</h1>
-    <p class="subtitle">Comparing Chatbot Arena Elo scores against API cost ($/1M input tokens). Hover over points for details.</p>
-    <svg id="chart"></svg>
+    <h1>LLM Pareto Frontier: Nov 24, 2025</h1>
+    <p class="subtitle">Comparing Chatbot Arena Elo scores against API cost ($/1M input tokens). <strong>Price Descending (High Cost on Left).</strong></p>
+    <div id="chart-wrapper">
+        <svg id="chart"></svg>
+    </div>
     <div id="legend" class="legend"></div>
 </div>
 
@@ -121,105 +131,69 @@
         d3.select("body").selectAll(".tooltip").remove();
         d3.select("#legend").selectAll("*").remove();
 
-        const csvData = `Rank (UB),Model,Score,95% CI (±),Votes,Organization,License,Input_Price_per_1M_Tokens_USD,Source_URL
-1,gemini-2.5-pro,1451,±4,"54,087",Google,Proprietary,$1.25,https://ai.google.dev/gemini-api/docs/pricing
-1,claude-opus-4-1-20250805-thinking-16k,1447,±5,"21,306",Anthropic,Proprietary,$15.00,https://www.anthropic.com/claude/opus
-1,claude-sonnet-4-5-20250929-thinking-32k,1445,±8,"6,287",Anthropic,Proprietary,$3.00,https://www.anthropic.com/claude/sonnet
-1,gpt-4.5-preview-2025-02-27,1441,±6,"14,644",OpenAI,Proprietary,$75.00,https://gist.github.com/t3dotgg/a4bb252e590320e223e71c595e60e6be
-2,chatgpt-4o-latest-20250326,1440,±4,"40,013",OpenAI,Proprietary,$2.50,https://gist.github.com/t3dotgg/a4bb252e590320e223e71c595e60e6be
-2,o3-2025-04-16,1440,±4,"51,293",OpenAI,Proprietary,$10.00,https://gist.github.com/t3dotgg/a4bb252e590320e223e71c595e60e6be
-2,claude-sonnet-4-5-20250929,1438,±8,"6,144",Anthropic,Proprietary,$3.00,https://www.anthropic.com/claude/sonnet
-2,gpt-5-high,1437,±5,"23,580",OpenAI,Proprietary,$15.00,https://azure.microsoft.com/en-us/pricing/details/cognitive-services/openai-service/
-2,claude-opus-4-1-20250805,1437,±5,"33,025",Anthropic,Proprietary,$15.00,https://www.anthropic.com/claude/opus
-3,gpt-5,1434,±4,"41,757",OpenAI,Proprietary,$1.25,https://platform.openai.com/docs/models/gpt-5
-3,qwen3-235b-a22b-instruct-2507,1433,±5,"11,154",Alibaba,Apache 2.0,$1.50,https://replicate.com/alibaba/qwen-235b-chat
-4,claude-opus-4-20250514-thinking-16k,1430,±6,"13,446",Anthropic,Proprietary,$15.00,https://www.anthropic.com/pricing
-5,kimi-k2-0711-preview,1428,±6,"14,575",Moonshot,Modified MIT,$2.00,https://platform.moonshot.cn/pricing
-6,deepseek-r1-0528,1427,±4,"24,845",DeepSeek,DeepSeek,$0.55,https://www.byteplus.com/en/topic/375552
-7,grok-4-0709,1426,±5,"19,258",xAI,Proprietary,$15.00,https://x.ai/pricing
-8,deepseek-r1-chat-0628,1417,±4,"40,845",DeepSeek,DeepSeek,$0.55,https://www.byteplus.com/en/topic/375552
-9,qwen2.5-max,1414,±4,"37,925",Alibaba,Proprietary,$1.50,https://replicate.com/alibaba/qwen-2.5-72b-chat
-10,glm-4.5,1413,±10,"4,570",Zhipu,Proprietary,$1.50,https://open.bigmodel.cn/pricing
-11,deepseek-v2.5-0725,1411,±4,"27,896",DeepSeek,DeepSeek,Not Publicly Priced,N/A
-12,gpt-4-turbo-2024-04-09,1409,±3,"58,284",OpenAI,Proprietary,$10.00,https://openai.com/pricing/
-13,claude-3-opus-20240229,1408,±3,"89,322",Anthropic,Proprietary,$15.00,https://www.anthropic.com/pricing
-14,qwen3-next-80b-a3b-instruct-1004,1407,±10,"3,634",Alibaba,Apache 2.0,$0.098,N/A
-15,o4-mini-2025-04-16,1406,±5,"14,249",OpenAI,Proprietary,$1.10,https://gist.github.com/t3dotgg/a4bb252e590320e223e71c595e60e6be
-16,gpt-4-0613,1404,±3,"86,039",OpenAI,Proprietary,$30.00,https://openai.com/pricing/
-17,qwen2-72b-instruct,1403,±3,"67,495",Alibaba,Apache 2.0,$0.90,https://aws.amazon.com/bedrock/pricing/
-18,gemma-3-27b-it,1402,±4,"21,085",Google,Gemma,$0.20,https://replicate.com/pricing
-18,qwen3-next-80b-a3b-instruct,1402,±6,"12,793",Alibaba,Apache 2.0,$0.098,N/A
-19,command-r-plus,1401,±3,"61,860",Cohere,CC-BY-NC,$3.00,https://cohere.com/pricing
-20,o1-2024-12-17,1400,±4,"28,039",OpenAI,Proprietary,$15.00,https://www.keywordsai.co/llm-library/o1-2024-12-17
-21,qwen2-57b-a14b-instruct,1399,±4,"28,989",Alibaba,Apache 2.0,$0.70,https://replicate.com/alibaba/qwen-2-57b-chat
-22,gemini-1.5-pro-001,1398,±3,"90,724",Google,Proprietary,$1.25,https://ai.google.dev/gemini-api/docs/pricing
-22,claude-sonnet-4-20250514-thinking-32k,1398,±5,"33,827",Anthropic,Proprietary,$3.00,https://livechatai.com/claude-4-pricing-calculators
-22,qwen3-235b-a22b-no-thinking,1398,±5,"39,528",Alibaba,Apache 2.0,Not Publicly Priced,N/A
-22,longcat-flash-chat,1398,±6,"11,667",Meituan,MIT,$0.15,https://langdb.ai/app/models/longcat-flash-chat
-23,claude-haiku-4-5-20251001,1397,±12,"2,380",Anthropic,Proprietary,$1.00,https://www.anthropic.com/claude/haiku
-23,qwen3-235b-a22b-thinking-2507,1397,±6,"9,386",Alibaba,Apache 2.0,Not Publicly Priced,N/A
-24,gpt-4-1106-preview,1396,±3,"111,850",OpenAI,Proprietary,$10.00,https://openai.com/pricing/
-25,gpt-4-0125-preview,1395,±3,"104,785",OpenAI,Proprietary,$10.00,https://openai.com/pricing/
-25,gpt-5-mini-high,1395,±6,"18,172",OpenAI,Proprietary,$0.25,https://azure.microsoft.com/en-us/pricing/details/cognitive-services/openai-service/
-26,claude-3.5-sonnet-20240620,1394,±3,"92,108",Anthropic,Proprietary,$3.00,https://www.anthropic.com/pricing
-26,deepseek-r1,1394,±5,"18,718",DeepSeek,MIT,$0.55,https://www.statista.com/chart/33839/prices-for-processing-one-million-input-output-tokens-on-different-ai-models/
-27,deepseek-v3-0324,1393,±6,"11,635",DeepSeek,MIT,$0.27,https://api-docs.deepseek.com/news/news1226
-28,o1-preview,1392,±4,"42,525",OpenAI,Proprietary,$10.00,https://gist.github.com/t3dotgg/a4bb252e590320e223e71c595e60e6be
-29,llama-3.1-70b-instruct,1390,±3,"67,007",Meta,Llama 3.1,$0.79,https://aws.amazon.com/bedrock/pricing/
-30,mistral-large-2407,1389,±3,"58,284",Mistral,Mistral Research,$8.00,https://mistral.ai/pricing/
-31,gemma-3-12b-it,1388,±6,"7,609",Google,Gemma,$0.15,https://replicate.com/pricing
-32,qwen3-110b-a2b-instruct,1387,±5,"14,582",Alibaba,Apache 2.0,Not Publicly Priced,N/A
-32,deepseek-v3,1387,±3,"32,599",DeepSeek,DeepSeek,$0.27,https://www.byteplus.com/en/topic/375552
-33,athene-v2-chat,1386,±4,"32,279",NexusFlow,NexusFlow,$0.10,https://sourceforge.net/software/compare/Athene-V2-vs-Syn/
-34,hunyuan-standard-2025-02-10,1385,±7,"6,227",Tencent,Proprietary,Not Publicly Priced,N/A
-35,gemma-3-4b-it,1384,±6,"7,552",Google,Gemma,$0.10,https://replicate.com/pricing
-36,gemini-1.5-flash-002,1383,±3,"49,036",Google,Proprietary,$0.35,https://ai.google.dev/gemini-api/docs/pricing
-37,qwq-32b,1382,±5,"13,674",Alibaba,Apache 2.0,Not Publicly Priced,N/A
-38,athene-70b-0725,1381,±4,"27,789",NexusFlow,CC-BY-NC-4.0,Not Publicly Priced,N/A
-39,grok-2-mini-2024-08-13,1380,±3,"68,300",xAI,Proprietary,$0.25,https://x.ai/pricing
-40,deepseek-v2.5,1379,±4,"33,638",DeepSeek,DeepSeek,Not Publicly Priced,N/A
-41,mistral-large-2402,1377,±3,"61,353",Mistral,Proprietary,$8.00,https://mistral.ai/pricing/
-42,claude-3-sonnet-20240229,1376,±3,"116,981",Anthropic,Proprietary,$3.00,https://www.anthropic.com/pricing
-43,gpt-4o-mini-2024-07-18,1375,±3,"60,547",OpenAI,Proprietary,$0.15,httpsBoth://openai.com/pricing/
-44,gemini-1.5-flash-api-0514,1374,±4,"24,809",Google,Proprietary,$0.35,https://ai.google.dev/gemini-api/docs/pricing
-45,glm-4-air,1373,±7,"7,117",Zhipu,Proprietary,$0.15,https://open.bigmodel.cn/pricing
-46,llama-3-70b-instruct,1372,±3,"110,344",Meta,Llama 3,$0.79,https://aws.amazon.com/bedrock/pricing/
-47,qwen-plus,1370,±5,"12,207",Alibaba,Proprietary,$1.50,https://replicate.com/alibaba/qwen-1.5-72b-chat
-48,command-r,1368,±3,"57,991",Cohere,CC-BY-NC,$0.50,https://cohere.com/pricing
-49,o1-mini,1367,±3,"71,780",OpenAI,Proprietary,$0.15,https://gist.github.com/t3dotgg/a4bb252e590320e223e71c595e60e6be
-50,claude-3-haiku-20240307,1359,±3,"95,334",Anthropic,Proprietary,$0.25,https://www.anthropic.com/pricing
-Example
-51,llama-3.1-8b-instruct,1355,±3,"59,343",Meta,Llama 3.1,$0.18,https://aws.amazon.com/bedrock/pricing/
-52,mistral-8x22b-instruct-v0.1,1352,±4,"41,757",Mistral,Apache 2.0,$0.65,https://deepinfra.com/pricing
-53,qwen1.5-110b-chat,1351,±5,"18,414",Alibaba,Apache 2.0,$1.20,https://replicate.com/alibaba/qwen-1.5-110b-chat
-54,dbrx-instruct,1347,±3,"53,529",Databricks,Databricks,$1.00,https://www.databricks.com/product/pricing/dbrx
-55,mixtral-8x7b-instruct-v0.1,1344,±3,"112,855",Mistral,Apache 2.0,$0.27,https://deepinfra.com/pricing`;
+        // Updated Data: Nov 24, 2025
+        const csvData = `Rank,Model,Score,Organization,Input_Price_per_1M_Tokens_USD
+1,gemini-3-pro,1495,Google,2.00
+2,grok-4.1-thinking,1481,xAI,5.00
+3,grok-4.1,1462,xAI,3.50
+4,gpt-5.1-high,1463,OpenAI,15.00
+5,gemini-2.5-pro,1451,Google,1.25
+6,claude-sonnet-4.5-thinking-32k,1449,Anthropic,3.00
+7,claude-opus-4.1-thinking-16k,1449,Anthropic,15.00
+8,claude-sonnet-4.5,1444,Anthropic,3.00
+9,gpt-4.5-preview-2025-02-27,1442,OpenAI,10.00
+10,claude-opus-4.1,1440,Anthropic,15.00
+11,qwen3-max,1440,Alibaba,1.60
+12,gpt-5.1,1439,OpenAI,5.00
+13,kimi-k2-thinking,1438,Moonshot,2.00
+14,gpt-5-high,1437,OpenAI,15.00
+15,ernie-5.0,1436,Baidu,2.00
+16,gpt-4o-latest-2025-03-26,1429,OpenAI,2.50
+17,deepseek-r1-0528,1426,DeepSeek,0.14
+18,grok-3-preview,1423,xAI,3.50
+19,deepseek-v3.2-exp,1421,DeepSeek,0.14
+20,qwen3-235b-instruct,1418,Alibaba,1.50
+21,deepseek-v3.1,1418,DeepSeek,0.14
+22,gpt-5-chat,1413,OpenAI,5.00
+23,gpt-4.1-2025-04-14,1412,OpenAI,2.00
+24,gemini-2.5-flash,1412,Google,0.30
+25,mistral-medium-2508,1410,Mistral,0.40
+26,glm-4.5,1408,Zhipu,1.50
+27,claude-haiku-4.5,1402,Anthropic,1.00
+28,mistral-large-2,1389,Mistral,2.00
+29,qwen-plus,1370,Alibaba,0.40
+30,llama-3.1-405b,1370,Meta,2.00
+31,llama-3.1-70b-instruct,1390,Meta,0.60
+32,deepseek-v2.5,1379,DeepSeek,0.14
+33,claude-3.5-sonnet,1376,Anthropic,3.00
+34,gpt-4o-mini,1375,OpenAI,0.15
+35,o1-preview,1392,OpenAI,15.00
+36,o1-mini,1367,OpenAI,1.10
+37,gemini-1.5-pro,1398,Google,1.25
+38,gemini-1.5-flash,1383,Google,0.075
+39,command-r-plus,1401,Cohere,3.00
+40,gemma-3-27b,1402,Google,0.20
+41,mistral-large-2402,1377,Mistral,8.00
+42,gpt-4-turbo,1409,OpenAI,10.00`;
 
         const parsedData = d3.csvParse(csvData);
 
         const llmData = parsedData.map(d => {
-            const costString = d.Input_Price_per_1M_Tokens_USD;
-            let cost = null;
-
-            if (costString && typeof costString === 'string' && costString.toLowerCase().trim() !== 'not publicly priced') {
-                cost = parseFloat(costString.replace('$', ''));
-            }
+            const cost = parseFloat(d.Input_Price_per_1M_Tokens_USD);
             
-            if (cost !== null && !isNaN(cost)) {
-                const family = d.Organization;
+            if (!isNaN(cost)) {
                 return {
                     name: d.Model,
                     elo: +d.Score,
                     cost: cost,
-                    family: family,
-                    votes: d.Votes
+                    family: d.Organization
                 };
             }
             return null;
         }).filter(d => d !== null);
 
         // --- Pareto Frontier Calculation ---
-        llmData.sort((a, b) => a.cost - b.cost);
+        llmData.sort((a, b) => a.cost - b.cost); // Keep this sort for calculation logic
         const paretoFrontier = [];
         let maxElo = -1;
         for (const model of llmData) {
@@ -231,42 +205,69 @@ Example
         
         // --- Chart Setup ---
         const container = d3.select("#chart-container");
-        const svgWidth = container.node().getBoundingClientRect().width;
-        const svgHeight = 600;
-        const margin = { top: 20, right: 30, bottom: 60, left: 70 };
-        const width = svgWidth - margin.left - margin.right;
+        const containerWidth = container.node().getBoundingClientRect().width;
+        // Adjust height based on width for mobile
+        const svgHeight = containerWidth < 600 ? 500 : 600; 
+        const margin = { top: 20, right: 40, bottom: 60, left: 60 };
+        const width = containerWidth - margin.left - margin.right;
         const height = svgHeight - margin.top - margin.bottom;
 
         const svg = d3.select("#chart")
-            .attr("width", svgWidth)
+            .attr("width", containerWidth)
             .attr("height", svgHeight)
             .append("g")
             .attr("transform", `translate(${margin.left},${margin.top})`);
         
         // --- Scales ---
+        const xMin = d3.min(llmData, d => d.cost) * 0.8;
+        const xMax = d3.max(llmData, d => d.cost) * 1.2;
+        
+        // REVERSED X-AXIS: Range is [width, 0] instead of [0, width]
         const xScale = d3.scaleLog()
-            .domain([d3.max(llmData, d => d.cost), 0.09]) // Invert the domain for reversed axis
-            .range([0, width]); // Keep range from left to right
+            .domain([xMin, xMax]) 
+            .range([width, 0]); 
 
         const yScale = d3.scaleLinear()
-            .domain(d3.extent(llmData, d => d.elo)).nice()
+            .domain([1350, d3.max(llmData, d => d.elo) + 10]) 
             .range([height, 0]);
         
-        const color = d3.scaleOrdinal(d3.schemeCategory10);
+        // Custom Brand Colors to prevent clashes (specifically xAI vs DeepSeek)
+        const brandColors = {
+            "xAI": "#1a1a1a",         // Dark Charcoal/Black
+            "DeepSeek": "#6f42c1",    // Bright Purple
+            "OpenAI": "#10a37f",      // OpenAI Green
+            "Google": "#4285F4",      // Google Blue
+            "Anthropic": "#d97757",   // Claude Terracotta
+            "Meta": "#0668E1",        // Meta Blue
+            "Mistral": "#f5a623",     // Mistral Gold
+            "Alibaba": "#ff4500",     // OrangeRed
+            "Cohere": "#395b64"       // Teal/Slate
+        };
+        
+        const defaultColor = d3.scaleOrdinal(d3.schemeCategory10);
+
+        const getColor = (family) => {
+            return brandColors[family] || defaultColor(family);
+        };
         
         // --- Axes and Grid ---
-        const xAxis = d3.axisBottom(xScale).ticks(10, "$.2f");
+        const xAxis = d3.axisBottom(xScale)
+            .ticks(5, "$.2f")
+            .tickFormat(d => "$" + d);
+            
         const yAxis = d3.axisLeft(yScale);
 
+        // Grid lines
         svg.append("g")
             .attr("class", "grid")
             .attr("transform", `translate(0,${height})`)
-            .call(d3.axisBottom(xScale).tickSize(-height).tickFormat(""));
+            .call(d3.axisBottom(xScale).ticks(5).tickSize(-height).tickFormat(""));
 
         svg.append("g")
             .attr("class", "grid")
             .call(d3.axisLeft(yScale).tickSize(-width).tickFormat(""));
 
+        // Axis drawing
         svg.append("g")
             .attr("transform", `translate(0,${height})`)
             .call(xAxis)
@@ -278,12 +279,13 @@ Example
         
         svg.append("g").call(yAxis);
 
+        // Axis Labels
         svg.append("text")
             .attr("class", "axis-label")
             .attr("text-anchor", "middle")
             .attr("x", width / 2)
             .attr("y", height + margin.bottom - 5)
-            .text("Cost per 1M Input Tokens ($) - Log Scale");
+            .text("Price per 1M Input Tokens ($) [Log Scale - Descending]");
 
         svg.append("text")
             .attr("class", "axis-label")
@@ -298,12 +300,15 @@ Example
             .attr("class", "tooltip");
 
         // --- Draw Pareto Line ---
+        // Sort frontier by Cost Descending (High -> Low) for correct Left -> Right drawing
+        const sortedFrontier = [...paretoFrontier].sort((a,b) => b.cost - a.cost);
+
         const line = d3.line()
             .x(d => xScale(d.cost))
-            .y(d => yScale(d.elo));
-
-        // Sort frontier by cost descending to draw line from left to right
-        const sortedFrontier = [...paretoFrontier].sort((a,b) => b.cost - a.cost);
+            .y(d => yScale(d.elo))
+            // curveStepBefore ensures the line drops vertically immediately when moving right (cheaper),
+            // correctly indicating that you lose the higher performance tier as soon as you pay less.
+            .curve(d3.curveStepBefore); 
 
         svg.append("path")
             .datum(sortedFrontier)
@@ -321,41 +326,55 @@ Example
         nodes.append("circle")
             .attr("class", "dot")
             .attr("r", 6)
-            .attr("fill", d => color(d.family))
-            .attr("stroke", d => color(d.family))
-            .attr("fill-opacity", 0.7);
+            .attr("fill", d => getColor(d.family))
+            .attr("stroke", "#fff")
+            .attr("stroke-width", 1)
+            .attr("fill-opacity", 0.8);
 
-        nodes.append("text")
+        // Only label the very top models or Pareto frontier to avoid clutter
+        nodes.filter(d => paretoFrontier.includes(d) || d.elo > 1460)
+            .append("text")
             .attr("class", "label")
-            .attr("x", 10)
+            .attr("x", 8)
             .attr("y", 3)
             .text(d => d.name);
             
+        // Interactive events
         nodes.on("mouseover", function(event, d) {
-                d3.select(this).select('circle').attr('r', 8).attr("fill-opacity", 1);
+                d3.select(this).raise().select('circle')
+                    .attr('r', 10)
+                    .attr("fill-opacity", 1)
+                    .attr("stroke", "#333");
+                
                 tooltip.transition().duration(200).style("opacity", .95);
-                tooltip.html(`<strong>${d.name}</strong>
-                              Elo Score: ${d.elo}<br/>
-                              Cost: $${d.cost.toFixed(2)}/1M tokens<br/>
-                              Family: ${d.family}<br/>
-                              Votes: ${d.votes}`)
+                tooltip.html(`
+                    <strong>${d.name}</strong>
+                    <div style="margin-top:4px; color:#555;">
+                    Elo: <span style="color:#000; font-weight:600;">${d.elo}</span><br/>
+                    Cost: <span style="color:#000; font-weight:600;">$${d.cost.toFixed(2)}</span> / 1M input<br/>
+                    Org: ${d.family}
+                    </div>
+                `)
                     .style("left", (event.pageX + 15) + "px")
                     .style("top", (event.pageY - 28) + "px");
             })
             .on("mouseout", function(d) {
-                d3.select(this).select('circle').attr('r', 6).attr("fill-opacity", 0.7);
+                d3.select(this).select('circle')
+                    .attr('r', 6)
+                    .attr("fill-opacity", 0.8)
+                    .attr("stroke", "#fff");
                 tooltip.transition().duration(500).style("opacity", 0);
             });
 
         // --- Legend ---
-        const families = [...new Set(llmData.map(d => d.family))];
+        const families = [...new Set(llmData.map(d => d.family))].sort();
         const legend = d3.select("#legend");
         families.forEach(family => {
             const legendItem = legend.append("div")
                 .attr("class", "legend-item");
             legendItem.append("div")
                 .attr("class", "legend-color")
-                .style("background-color", color(family));
+                .style("background-color", getColor(family));
             legendItem.append("span").text(family);
         });
     }
@@ -367,4 +386,3 @@ Example
 </script>
 </body>
 </html>
-
